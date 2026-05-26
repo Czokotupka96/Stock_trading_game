@@ -1,4 +1,4 @@
-# RetroTrade - Stock Market Simulator
+# Stock trading game simulator
 
 A browser-based stock market simulation game built with HTML, Tailwind CSS, jQuery, and Chart.js. This project demonstrates dynamic state management, real-time charting, and algorithmic data generation within a single-file architecture.
 
