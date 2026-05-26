@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Game Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-violet-700 text-black font-sans p-6 min-h-screen">
+
+    <!-- Everything on the page-->
+    <div class="max-w-6xl mx-auto space-y-6">
+        
+        <!-- taskbar/headbar - flexbox -->
+        <div class="flex flex-col md:flex-row justify-between items-center bg-slate-200 p-6 rounded-md shadow-md">
+            <div>
+                <h1 class="text-3xl font-extrabold text-black-800">Stock trading game</h1>
+                <p class="text-sm text-violet-500 font-semibold" id="current-date">January 1, 2015</p>
+            </div>
+            
+            <div class="flex gap-6 mt-4 md:mt-0 text-right">
+                <div>
+                    <p class="text-sm text-violet-500 uppercase tracking-wide">Cash Balance</p>
+                    <p class="text-2xl font-bold text-green-600">$<span id="cash-balance">10000.00</span></p>
+                </div>
+                <div>
+                    <p class="text-sm text-violet-500 uppercase tracking-wide">Portfolio Value</p>
+                    <p class="text-2xl font-bold text-violet-700">$<span id="portfolio-value">0.00</span></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- middle part -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- chart -->
+            <div class="lg:col-span-2 bg-slate-200 p-6 rounded-md shadow-md">
+                <h2 class="text-xl font-bold mb-4">Market Chart (Past 100 Days)</h2>
+                <canvas id="marketChart" height="120"></canvas>
+            </div>
+
+            <div class="space-y-6">
+                
+                <!-- Time dilation and starting the simulation -->
+                <div class="bg-slate-200 p-6 rounded-md shadow-md">
+                    <h2 class="text-lg font-bold mb-4">Time Dilation</h2>
+                    <div class="flex items-center justify-between mb-4">
+                        <button id="toggle-sim-btn" class="bg-violet-700 hover:bg-violet-500 text-white font-bold py-2 px-4 rounded w-full transition">
+                            Start Simulation
+                        </button>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-600 mb-1">Speed: <span id="speed-label">Normal (Day/sec)</span></label>
+                        <input type="range" id="speed-slider" min="10" max="1000" value="0" class="accent-violet-500 w-full cursor-pointer" style="direction: ltr;">
+                        <div class="flex justify-between text-xs text-violet-500 mt-1">
+                            <span>Slow</span>
+                            <span>Fast</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- trade desk -->
+                <div class="bg-slate-200 p-6 rounded-md shadow-md">
+                    <h2 class="text-lg font-bold mb-4">Trade Desk</h2>
+                    
+                    <!-- slecting asset -->
+                    <div class="mb-4">
+                        <label class="block text-sm text-gray-600 mb-1">Select Asset</label>
+                        <select id="stock-select" class="w-full bg-violet-400 border-gray-300 border p-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </select>
+                    </div>
+
+                    <!-- current price -->
+                    <div class="flex items-center justify-between mb-4 p-3 bg-gray-50 rounded bg-violet-400">
+                        <span class="text-sm font-semibold ">Current Price:</span>
+                        <span class="text-lg font-bold" id="selected-price">$0.00</span>
+                    </div>
+
+                    <!-- quantity -->
+                    <div class="mb-6">
+                        <label class="block text-sm text-gray-600 mb-1">Quantity (Shares)</label>
+                        <input type="number" id="trade-qty" min="1" value="1" class=" bg-violet-400 w-full border-gray-300 border p-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+
+                    <!-- buy + sell -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <button id="buy-btn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 rounded transition">Buy</button>
+                        <button id="sell-btn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 rounded transition">Sell</button>
+                    </div>
+                    <p id="trade-msg" class="text-sm text-center mt-3 h-4 text-red-500"></p>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- your holdings (bottom part) -->
+        <div class="bg-slate-200 p-6 rounded-md shadow-md">
+            <h2 class="text-xl font-bold mb-4">Your Holdings</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="border-b-2 border-violet-500">
+                            <th class="py-2 px-4 text-gray-600">Asset</th>
+                            <th class="py-2 px-4 text-gray-600">Shares Owned</th>
+                            <th class="py-2 px-4 text-gray-600">Avg Cost</th>
+                            <th class="py-2 px-4 text-gray-600">Current Price</th>
+                            <th class="py-2 px-4 text-gray-600">Total Value</th>
+                            <th class="py-2 px-4 text-gray-600">Profit/Loss</th>
+                        </tr>
+                    </thead>
+                    <tbody id="holdings-body">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // game state variables
+        var cash_balance = 10000;
+        var current_day = 0;
+        var total_days = 3650; // 10 years of days
+        
+        // variables for the timer
+        var is_running = false;
+        var sim_timer;
+        var sim_speed = 1000;
+
+        // arrays to hold all the prices
+        // tracking how many shares we own
+        // tracking our average cost for the profit/loss math
+        var portfolio = {
+            "AAPL": { owned: 0, cost: 0, prices: [] },
+            "TSLA": { owned: 0, cost: 0, prices: [] },
+            "AMZN": { owned: 0, cost: 0, prices: [] }
+        };
+
+        // chart variable
+        var market_chart;
+
+        // function to create 10 years of random stock prices
+        function generateMarketData() {
+            var curr_aapl = 25.0;
+            var curr_tsla = 15.0;
+            var curr_amzn = 300.0;
+
+            for (var i = 0; i < total_days; i++) {
+                // save todays prices
+                portfolio["AAPL"].prices.push(curr_aapl);
+                portfolio["TSLA"].prices.push(curr_tsla);
+                portfolio["AMZN"].prices.push(curr_amzn);
+
+                // calculate tomorrows prices
+                curr_aapl = curr_aapl * (1 + (Math.random() * 0.04 - 0.0195));
+                curr_tsla = curr_tsla * (1 + (Math.random() * 0.08 - 0.039));
+                curr_amzn = curr_amzn * (1 + (Math.random() * 0.05 - 0.024));
+            }
+        }
+
+        // setup the graph for the first time
+        function setupChart() {
+            var canvas_element = document.getElementById("marketChart").getContext("2d");
+            
+            // creating chart (using Chart.js)
+            market_chart = new Chart(canvas_element, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        { label: 'AAPL', data: [], borderColor: '#3b82f6', borderWidth: 2, pointRadius: 0, tension: 0.1 },
+                        { label: 'TSLA', data: [], borderColor: '#ef4444', borderWidth: 2, pointRadius: 0, tension: 0.1 },
+                        { label: 'AMZN', data: [], borderColor: '#f59e0b', borderWidth: 2, pointRadius: 0, tension: 0.1 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    animation: false,
+                    scales: {
+                        x: { display: true },
+                        y: { display: true }
+                    }
+                }
+            });
+        }
+
+        // function to figure out the date string
+        function getFormattedDate(days_to_add) {
+            var d = new Date("2015-01-01T00:00:00");
+            d.setDate(d.getDate() + days_to_add);
+            return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+        }
+
+        // helper function - checking the state of our stock
+        function checkStock(stock) {
+            var p = portfolio[stock];
+            var owned = p.owned;
+            var cost = p.cost;
+            var prices = p.prices;
+            
+            var stock_total = 0;
+            var tableBody = "";
+            if (owned > 0) {
+                var val = owned * prices[current_day];
+                stock_total += val;
+                var pl = val - (owned * cost);
+                var pl_class = "text-green-600";
+                var plus_sign = "+";
+                if (pl < 0) { pl_class = "text-red-600"; plus_sign = ""; }
+
+                // creating the table to be shown
+                tableBody += "<tr class='border-b border-gray-100 hover:bg-gray-50'>";
+                tableBody += "<td class='py-3 px-4 font-bold'>" + stock + "</td>";
+                tableBody += "<td class='py-3 px-4'>" + owned + "</td>";
+                tableBody += "<td class='py-3 px-4'>$" + cost.toFixed(2) + "</td>";
+                tableBody += "<td class='py-3 px-4'>$" + prices[current_day].toFixed(2) + "</td>";
+                tableBody += "<td class='py-3 px-4 font-semibold'>$" + val.toFixed(2) + "</td>";
+                tableBody += "<td class='py-3 px-4 font-bold " + pl_class + "'>" + plus_sign + "$" + pl.toFixed(2) + "</td>";
+                tableBody += "</tr>";
+            }
+
+            return [stock_total, tableBody];
+        }
+
+        // update the table and the texts on the screen
+        function updateUI() {
+            // update date text
+            $("#current-date").html(getFormattedDate(current_day));
+            
+            // update selected stock price text
+            var selected_stock = $("#stock-select").val();
+            var current_price = portfolio[selected_stock].prices[current_day];
+            
+            $("#selected-price").html("$" + current_price.toFixed(2));
+            $("#cash-balance").html(cash_balance.toFixed(2));
+
+            // start collecting the table html string
+            var tableBody = "";
+            var portfolio_total = 0;
+
+            // check all of our stocks
+            // check AAPL
+            var aapl_check = checkStock("AAPL");
+            portfolio_total += aapl_check[0];
+            tableBody += aapl_check[1];
+            // check TSLA
+            var tsla_check = checkStock("TSLA");
+            portfolio_total += tsla_check[0];
+            tableBody += tsla_check[1];
+            // check AMZN
+            var amzn_check = checkStock("AMZN");
+            portfolio_total += amzn_check[0];
+            tableBody += amzn_check[1];
+
+            // if we have nothing - show empty message
+            if (tableBody == "") {
+                tableBody = "<tr><td colspan='6' class='py-4 text-center text-gray-400'>No active holdings.</td></tr>";
+            }
+
+            // put it on the page
+            $("#holdings-body").html(tableBody);
+            $("#portfolio-value").html(portfolio_total.toFixed(2));
+        }
+
+        // update the chart separately to keep things clean
+        function updateChart() {
+            var start_day = current_day - 100;
+            if (start_day < 0) start_day = 0;
+
+            // empty the old data
+            market_chart.data.labels = [];
+            market_chart.data.datasets[0].data = [];
+            market_chart.data.datasets[1].data = [];
+            market_chart.data.datasets[2].data = [];
+
+            // fill with the new window of data
+            for (var i = start_day; i <= current_day; i++) {
+                market_chart.data.labels.push(getFormattedDate(i));
+                market_chart.data.datasets[0].data.push(portfolio["AAPL"].prices[i]);
+                market_chart.data.datasets[1].data.push(portfolio["TSLA"].prices[i]);
+                market_chart.data.datasets[2].data.push(portfolio["AMZN"].prices[i]);
+            }
+
+            market_chart.update();
+        }
+
+        // what happens when a day passes
+        function advanceDay() {
+            if (current_day < total_days - 1) {
+                current_day++;
+                updateUI();
+                updateChart();
+            } else {
+                // stop the game
+                clearInterval(sim_timer);
+                is_running = false;
+                $("#toggle-sim-btn").html("End of Data Reached").prop("disabled", true);
+                alert("You reached the end of the simulation!");
+            }
+        }
+
+        // wait for the page to load
+        $(document).ready(function () {
+            
+            // setup the dropdowns
+            $("#stock-select").append('<option value="AAPL">AAPL</option>');
+            $("#stock-select").append('<option value="TSLA">TSLA</option>');
+            $("#stock-select").append('<option value="AMZN">AMZN</option>');
+
+            // initialize data
+            generateMarketData();
+            setupChart();
+            updateUI();
+            updateChart();
+
+            // when we change the dropdown
+            $("#stock-select").on("change", function() {
+                updateUI();
+            });
+
+            // play button logic
+            $("#toggle-sim-btn").on("click", function() {
+                if (is_running == false) {
+                    is_running = true;
+                    $(this).html("Pause Simulation").removeClass("bg-violet-700").addClass("bg-slate-400");
+                    sim_timer = setInterval(advanceDay, sim_speed);
+                } else {
+                    is_running = false;
+                    $(this).html("Start Simulation").removeClass("bg-slate-400").addClass("bg-violet-700");
+                    clearInterval(sim_timer);
+                }
+            });
+
+            // slider for speed
+            $("#speed-slider").on("input", function() {
+                sim_speed = (-1) * (parseInt($(this).val())-1000);
+                
+                // update text based on how fast it is
+                if (sim_speed > 800) $("#speed-label").html("Normal");
+                else if (sim_speed > 300) $("#speed-label").html("Fast");
+                else $("#speed-label").html("Ultra Fast");
+
+                // if already running - restart the timer with new speed
+                if (is_running == true) {
+                    clearInterval(sim_timer);
+                    sim_timer = setInterval(advanceDay, sim_speed);
+                }
+            });
+
+            // buying logic
+            $("#buy-btn").on("click", function() {
+                var stock = $("#stock-select").val();
+                var qty = parseInt($("#trade-qty").val());
+                
+                if (isNaN(qty) || qty <= 0) {
+                    alert("Please enter a valid amount to buy.");
+                    return;
+                }
+
+                var p = portfolio[stock];
+                var price = p.prices[current_day];
+                var total_cost = price * qty;
+
+                if (cash_balance >= total_cost) {
+                    cash_balance -= total_cost;
+                    
+                    // math to calculate average cost
+                    var old_total = p.owned * p.cost;
+                    p.owned += qty;
+                    p.cost = (old_total + total_cost) / p.owned;
+
+                    $("#trade-msg").html("Bought " + qty + " of " + stock).css("color", "green");
+                    updateUI();
+                } else {
+                    alert("You don't have enough money for this trade!");
+                }
+            });
+
+            // selling logic
+            $("#sell-btn").on("click", function() {
+                var stock = $("#stock-select").val();
+                var qty = parseInt($("#trade-qty").val());
+
+                if (isNaN(qty) || qty <= 0) {
+                    alert("Please enter a valid amount to sell.");
+                    return;
+                }
+
+                var p = portfolio[stock];
+                var price = p.prices[current_day];
+
+                if (p.owned >= qty) {
+                    cash_balance += (price * qty);
+                    p.owned -= qty;
+                    
+                    if (p.owned == 0) p.cost = 0; // reset cost if we sell everything
+
+                    $("#trade-msg").html("Sold " + qty + " of " + stock).css("color", "green");
+                    updateUI();
+                } else {
+                    alert("You don't own enough shares to sell that many!");
+                }
+            });
+
+        });
+    </script>
+</body>
+</html>
