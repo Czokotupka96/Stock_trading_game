@@ -8,6 +8,9 @@
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
+
+<!-- I used tailwind css for fun (already had some experience with it, wanted to use it with jQuery) -->
+
 <body class="bg-violet-700 text-black font-sans p-6 min-h-screen">
 
     <!-- Everything on the page-->
@@ -36,13 +39,12 @@
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
             <!-- chart -->
-            <div class="lg:col-span-2 bg-slate-200 p-6 rounded-md shadow-md">
+            <div class="lg:col-span-2 bg-slate-200 p-6 rounded-md shadow-md flex flex-col justify-center">
                 <h2 class="text-xl font-bold mb-4">Market Chart (Past 100 Days)</h2>
-                <canvas id="marketChart" height="120"></canvas>
+                <canvas id="marketChart" height="450"></canvas>
             </div>
 
             <div class="space-y-6">
-                
                 <!-- Time dilation and starting the simulation -->
                 <div class="bg-slate-200 p-6 rounded-md shadow-md">
                     <h2 class="text-lg font-bold mb-4">Time Dilation</h2>
@@ -78,6 +80,12 @@
                         <span class="text-lg font-bold" id="selected-price">$0.00</span>
                     </div>
 
+                    <!-- total price -->
+                    <div class="flex items-center justify-between mb-4 p-3 bg-gray-50 rounded bg-green-200">
+                        <span class="text-sm font-semibold ">Total Price:</span>
+                        <span class="text-lg font-bold" id="total-price">$0.00</span>
+                    </div>
+
                     <!-- quantity -->
                     <div class="mb-6">
                         <label class="block text-sm text-gray-600 mb-1">Quantity (Shares)</label>
@@ -89,7 +97,7 @@
                         <button id="buy-btn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 rounded transition">Buy</button>
                         <button id="sell-btn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 rounded transition">Sell</button>
                     </div>
-                    <p id="trade-msg" class="text-sm text-center mt-3 h-4 text-red-500"></p>
+                    <p id="trade-msg" class="text-sm text-center mt-3 h-4"></p>
                 </div>
 
             </div>
@@ -114,6 +122,17 @@
                         </tbody>
                 </table>
             </div>
+        </div>
+
+        <!-- simple instructions on playing the game -->
+        <div class="bg-slate-300 p-6 rounded-md shadow-md">
+            <h2 class="text-xl font-bold mb-4 border-b-2 border-violet-500 pb-4">How to Play</h2>
+            <ul class="list-disc list-inside space-y-2 text-black">
+                <li><strong>Start the Market:</strong> Click the "Start Simulation" button to begin the flow of time.</li>
+                <li><strong>Time Control:</strong> Adjust the Speed slider while the game is running. Slide right to fast-forward through the days, or left to slow things down so you can strategize.</li>
+                <li><strong>Interactive Chart:</strong> Click on the specific stock labels (AAPL, TSLA, AMZN) in the legend at the top of the chart to toggle those lines on or off.</li>
+                <li><strong>Trading:</strong> Use the Trade Desk to select an asset, check its current price, input your quantity, and hit Buy or Sell to build your portfolio.</li>
+            </ul>
         </div>
 
     </div>
@@ -181,7 +200,8 @@
                     scales: {
                         x: { display: true },
                         y: { display: true }
-                    }
+                    }//,
+                    //maintainAspectRatio: false
                 }
             });
         }
@@ -235,6 +255,7 @@
             
             $("#selected-price").html("$" + current_price.toFixed(2));
             $("#cash-balance").html(cash_balance.toFixed(2));
+            $("#total-price").html("$" + (current_price.toFixed(2) * parseInt($("#trade-qty").val())).toFixed(2));
 
             // start collecting the table html string
             var tableBody = "";
@@ -301,7 +322,7 @@
             }
         }
 
-        // wait for the page to load
+        //  loading the page
         $(document).ready(function () {
             
             // setup the dropdowns
